@@ -42,6 +42,8 @@ Upload the MKP to your Checkmk site and install it:
 omd su <SITE>
 mkp install fortios-<VERSION>.mkp
 cmk -R
+```
+
 After installation:
 
 Go to Setup → Hosts
@@ -54,6 +56,7 @@ If you previously installed the standalone firmware package, remove it to avoid 
 
 mkp remove fortigate_firmware
 cmk -R
+
 ⚙️ Configuration
 
 Navigate to:
@@ -83,7 +86,6 @@ Checkmk 2.4 or newer
 🧠 API Endpoints Used
 
 /api/v2/monitor/system/status
-
 /api/v2/monitor/system/firmware
 
 👥 Credits
