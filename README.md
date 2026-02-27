@@ -1,6 +1,7 @@
 # FortiOS Checkmk Special Agent (Extended)
 
 Extended FortiGate monitoring for **Checkmk 2.4+** via REST API.
+All credits belong to original creators. I have only combined 2 ready to use extensions into one and added Fortigate Model and Serial Number as aditional services for better visualisation.
 
 This package combines the original FortiOS special agent with integrated firmware monitoring and additional device metadata services.
 
