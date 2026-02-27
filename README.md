@@ -95,12 +95,9 @@ This project builds upon the excellent work of:
 Simon Meister
 
 Roland Wyss (opensource@wagner.ch
-)
+) https://github.com/WagnerAG/checkmk_fortigate
 
-Jacox98
-
-Ahmet Arnautovic (ahmet.arnautovic@acp.at
-)
+Jacox98 https://github.com/Jacox98/checkmk-fortios-fw
 
 Thank you for the original implementation and contributions to the Checkmk community.
 
