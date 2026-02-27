@@ -1,0 +1,25 @@
+title: FortiOS System
+agents: special
+catalog: os/networking
+license: GPL
+distribution: check_mk
+description:
+ Shows basic FortiOS system information (version/build, model, hostname, serial)
+ retrieved via the FortiOS special agent.
+
+ The special agent queries the endpoint:
+  - /api/v2/monitor/system/status
+
+item:
+ None
+
+inventory:
+ The FortiOS package also provides HW/SW inventory attributes via the
+ "FortiOS Device info" inventory plugin.
+
+parameters:
+ None
+
+perfdata:
+ version_numeric  FortiOS version encoded as major*10000 + minor*100 + patch
+ build_number     FortiOS build number
