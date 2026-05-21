@@ -1,0 +1,22 @@
+title: Fortios: HA sync status
+agents: special
+catalog: network/fortigate
+license: GPLv2
+distribution: check_mk
+description:
+ This check monitors the HA synchronization status of a FortiGate firewall cluster.
+ It uses the FortiOS REST API HA checksum endpoint and compares the configuration
+ checksum values of the cluster members.
+
+ The service is only discovered if more than one HA member is reported.
+ If the FortiGate reports an out-of-sync state or the member checksums differ,
+ the service becomes CRITICAL.
+
+ The special agent is required for this check,
+ which can be configured via “FortiOS”.
+
+discovery:
+ One service is created if an HA cluster is detected.
+
+item:
+ status

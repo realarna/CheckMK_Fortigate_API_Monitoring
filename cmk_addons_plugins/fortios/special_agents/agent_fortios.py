@@ -89,6 +89,11 @@ _SECTIONS = [
         min_version=_REST_VERSION,
     ),
     _SectionSpec(
+        name="ha_sync_status",
+        path="monitor/system/ha-checksums",
+        min_version=_REST_VERSION,
+    ),
+    _SectionSpec(
         name="interfaces",
         path="monitor/system/interface?vdom=*&include_aggregate=true&include_vlan=true",
         min_version=_REST_VERSION,

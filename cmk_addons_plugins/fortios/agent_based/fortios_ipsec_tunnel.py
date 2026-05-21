@@ -17,7 +17,6 @@
 
 """
 Check_MK agent based checks to be used with agent_fortios Datasource
-
 """
 
 from __future__ import annotations
@@ -28,26 +27,78 @@ from typing import Any
 
 from cmk.agent_based.v2.render import networkbandwidth
 
-from cmk.agent_based.v2 import CheckPlugin, CheckResult, DiscoveryResult, Metric, Result, Service, State, get_rate, get_value_store, check_levels
+from cmk.agent_based.v2 import (
+    CheckPlugin,
+    CheckResult,
+    DiscoveryResult,
+    Metric,
+    Result,
+    Service,
+    State,
+    check_levels,
+    get_rate,
+    get_value_store,
+)
 
 from .fortios_ipsec import FortiIPSec
 
 
-def get_ignored_tunnels(ipsec_tunnel, tunnel_ignored_names: list, tunnel_ignored_dst_subnets: list):
+def get_ignored_tunnels(ipsec_tunnel: FortiIPSec, tunnel_ignored_names: list[str], tunnel_ignored_dst_subnets: list[str]):
     ignored_tunnels = []
 
     for proxy_source in ipsec_tunnel.proxyid:
         # Add p2 tunnels matching destinations subnets to ignored tunnel list
-        for proxy in proxy_source.proxy_dst:
+        for proxy in proxy_source.proxy_dst or []:
             if proxy.subnet in tunnel_ignored_dst_subnets:
                 ignored_tunnels.append(proxy_source)
+                break
 
         # Add p2 tunnels matching tunnel names to ignored tunnel list
-        if proxy_source.p2name in tunnel_ignored_names:
-            if proxy_source.p2name not in ignored_tunnels:
-                ignored_tunnels.append(proxy_source)
+        if proxy_source.p2name in tunnel_ignored_names and proxy_source not in ignored_tunnels:
+            ignored_tunnels.append(proxy_source)
 
     return ignored_tunnels
+
+
+def _get_effective_proxy_sources(
+    ipsec_tunnel: FortiIPSec,
+    tunnel_ignored_names: list[str],
+    tunnel_ignored_dst_subnets: list[str],
+):
+    ignored_tunnels = get_ignored_tunnels(ipsec_tunnel, tunnel_ignored_names, tunnel_ignored_dst_subnets)
+    effective_proxy_sources = [proxy for proxy in ipsec_tunnel.proxyid if proxy not in ignored_tunnels]
+    return effective_proxy_sources, ignored_tunnels
+
+
+def _tunnel_is_effectively_up(
+    ipsec_tunnel: FortiIPSec,
+    tunnel_ignored_names: list[str],
+    tunnel_ignored_dst_subnets: list[str],
+) -> tuple[bool, list, int, int, int]:
+    effective_proxy_sources, ignored_tunnels = _get_effective_proxy_sources(
+        ipsec_tunnel,
+        tunnel_ignored_names,
+        tunnel_ignored_dst_subnets,
+    )
+
+    effective_total = len(effective_proxy_sources)
+    effective_up = sum(1 for proxy in effective_proxy_sources if proxy.status == "up")
+    effective_down = sum(1 for proxy in effective_proxy_sources if proxy.status == "down")
+
+    # If every phase2 entry is intentionally ignored, the tunnel should not alert.
+    if effective_total == 0:
+        return True, ignored_tunnels, effective_total, effective_up, effective_down
+
+    return effective_up == effective_total, ignored_tunnels, effective_total, effective_up, effective_down
+
+
+def _normalize_group_members(current_item: str, configured_members: list[str]) -> list[str]:
+    normalized_members: list[str] = []
+    for member in [current_item, *configured_members]:
+        member = member.strip()
+        if member and member not in normalized_members:
+            normalized_members.append(member)
+    return normalized_members
 
 
 def discovery_fortios_ipsec(section: Mapping[str, FortiIPSec]) -> DiscoveryResult:
@@ -68,22 +119,96 @@ def check_fortios_ipsec(item: str, params: Mapping[str, Any], section: Mapping[s
 
     tunnel_ignored_names = params.get("item_names_excluded", [])
     tunnel_ignored_dst_subnets = params.get("item_dst_excluded", [])
+    redundancy_group_members = params.get("redundancy_group_members", [])
+    redundancy_group_name = params.get("redundancy_group_name", "")
 
-    ignored_tunnels = get_ignored_tunnels(ipsec_tunnel, tunnel_ignored_names, tunnel_ignored_dst_subnets)
+    tunnel_is_up, ignored_tunnels, effective_total, effective_up, effective_down = _tunnel_is_effectively_up(
+        ipsec_tunnel,
+        tunnel_ignored_names,
+        tunnel_ignored_dst_subnets,
+    )
 
-    details = f"""Tunnels up: [{", ".join([f"{proxy.p2name}: {[dest.subnet for dest in proxy.proxy_dst]}" for proxy in ipsec_tunnel.proxyid if proxy.status == "up"])}], \n
-                Tunnels down: [{", ".join([f"{proxy.p2name}: {[dest.subnet for dest in proxy.proxy_dst]}" for proxy in ipsec_tunnel.proxyid if proxy.status == "down"])}], \n
-                Tunnels ignored by name: [{", ".join(tunnel_ignored_names)}], \n
-                Tunnels ignored by destination subnet: [{", ".join(tunnel_ignored_dst_subnets)}], \n
+    up_tunnels = [
+        f"{proxy.p2name}: {[dest.subnet for dest in proxy.proxy_dst or []]}"
+        for proxy in ipsec_tunnel.proxyid
+        if proxy.status == "up"
+    ]
+    down_tunnels = [
+        f"{proxy.p2name}: {[dest.subnet for dest in proxy.proxy_dst or []]}"
+        for proxy in ipsec_tunnel.proxyid
+        if proxy.status == "down"
+    ]
+
+    details = f"""Tunnels up: [{", ".join(up_tunnels)}], 
+
+                Tunnels down: [{", ".join(down_tunnels)}], 
+
+                Tunnels ignored by name: [{", ".join(tunnel_ignored_names)}], 
+
+                Tunnels ignored by destination subnet: [{", ".join(tunnel_ignored_dst_subnets)}], 
+
+                Effective phase2 tunnels: {effective_total}, effective up: {effective_up}, effective down: {effective_down}, 
+
                 """
 
-    if ipsec_tunnel.tunnels_up == ipsec_tunnel.tunnels_total:
-        yield Result(state=State.OK, summary=ipsec_tunnel.summary, details=details)
+    group_members = _normalize_group_members(item, redundancy_group_members)
+    if len(group_members) > 1:
+        group_name = redundancy_group_name.strip() or " / ".join(group_members)
+        group_states: dict[str, bool] = {}
+        missing_members: list[str] = []
 
-    elif any(str(proxy_source.p2name) == (ipsec_tunnel.proxyid[0].p2name) for proxy_source in ignored_tunnels):
-        yield Result(state=State.OK, summary=ipsec_tunnel.name, details=details)
+        for member in group_members:
+            group_tunnel = section.get(member)
+            if group_tunnel is None:
+                missing_members.append(member)
+                continue
+
+            member_is_up, _, _, _, _ = _tunnel_is_effectively_up(
+                group_tunnel,
+                tunnel_ignored_names,
+                tunnel_ignored_dst_subnets,
+            )
+            group_states[member] = member_is_up
+
+        members_up = [member for member, is_up in group_states.items() if is_up]
+        members_down = [member for member, is_up in group_states.items() if not is_up]
+
+        group_details = (
+            details
+            + f"Redundancy group: {group_name}, \n"
+            + f"Configured members: [{', '.join(group_members)}], \n"
+            + f"Members up: [{', '.join(members_up)}], \n"
+            + f"Members down: [{', '.join(members_down)}], \n"
+            + f"Missing members: [{', '.join(missing_members)}]"
+        )
+
+        if members_up:
+            summary = (
+                f"Redundancy group '{group_name}' healthy - active member(s): {', '.join(members_up)}; "
+                f"current tunnel '{item}' is {'up' if tunnel_is_up else 'down'}"
+            )
+            yield Result(state=State.OK, summary=summary, details=group_details)
+        else:
+            known_members = len(group_states)
+            expected_members = len(group_members)
+            summary = (
+                f"Redundancy group '{group_name}' down - all {known_members}/{expected_members} known member(s) are down"
+            )
+            if missing_members:
+                summary += f"; missing in agent data: {', '.join(missing_members)}"
+            yield Result(state=State.CRIT, summary=summary, details=group_details)
     else:
-        yield Result(state=State.CRIT, summary=ipsec_tunnel.summary, details=details)
+        if tunnel_is_up:
+            if effective_total == 0 and ignored_tunnels:
+                yield Result(
+                    state=State.OK,
+                    summary=f"{ipsec_tunnel.name}: all monitored phase2 entries are ignored by rule",
+                    details=details,
+                )
+            else:
+                yield Result(state=State.OK, summary=ipsec_tunnel.summary, details=details)
+        else:
+            yield Result(state=State.CRIT, summary=ipsec_tunnel.summary, details=details)
 
     yield from check_levels(
         value=ipsec_tunnel.tunnels_total,

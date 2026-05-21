@@ -1,18 +1,26 @@
-title: Fortios: IPSec
-agents: special
-catalog: network/fortigate
-license: GPLv2
+title: FortiOS IPSec VPN tunnels
+agents: fortios
+catalog: networking/vpn
+license: GPL
 distribution: check_mk
 description:
- This check monitors the IPSec tunnels of a Fortigate firewall.
- All tunnels are monitored by default.
- The "fortios_ipsec_check_parameters" rule can be used to configure the 
- tunnels ignored by name and remote subnet.
- A tunnel is displayed as {crit} if it is not active.
-
-
- The special agent is required for this check, 
- which can be configured via “FortiOS”.
-
+ This check monitors FortiOS IPSec VPN tunnels collected through the special agent.
+ .
+ It evaluates all phase2 entries of a phase1 tunnel and can ignore selected phase2
+ entries by name or destination subnet.
+ .
+ New in this package revision:
+ .
+ You can define redundant phase1 tunnel bundles via the check rule. When the same
+ redundancy rule is applied to all tunnel members in a bundle, the service remains OK
+ as long as at least one member is effectively up. A CRIT state is only raised when all
+ configured bundle members are down.
+item:
+ Name of the IPSec phase1 tunnel
+parameters:
+ item_names_excluded: list of phase2 tunnel names to ignore
+ item_dst_excluded: list of destination subnets to ignore
+ redundancy_group_name: optional display name for the redundant tunnel bundle
+ redundancy_group_members: list of phase1 tunnel service items belonging to the same bundle
 discovery:
- One service per IPSec tunnel is created.
+ A service is created for every FortiOS IPSec phase1 tunnel returned by the API.

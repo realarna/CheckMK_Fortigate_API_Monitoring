@@ -16,12 +16,11 @@
 
 """
 Check_MK WATO rule spec for FortiOS special agent
-
 """
 
-from cmk.rulesets.v1 import Title, Help
+from cmk.rulesets.v1 import Help, Title
 from cmk.rulesets.v1.form_specs import DictElement, Dictionary, List, String, validators
-from cmk.rulesets.v1.rule_specs import CheckParameters, Topic, HostAndItemCondition
+from cmk.rulesets.v1.rule_specs import CheckParameters, HostAndItemCondition, Topic
 
 
 def _form_check_fortios_ipsec() -> Dictionary:
@@ -42,6 +41,22 @@ def _form_check_fortios_ipsec() -> Dictionary:
                 parameter_form=List[str](
                     title=Title("Destination subnets to ignore in monitoring"),
                     help_text=Help("IPSec VPN destinations listed here will be excluded from monitoring. Example: '10.10.10.0-10.10.10.255' or '10.10.10.0/255.255.255.0'"),
+                    element_template=String(
+                        custom_validate=(validators.LengthInRange(min_value=1),),
+                    ),
+                    editable_order=False,
+                ),
+            ),
+            "redundancy_group_name": DictElement(
+                parameter_form=String(
+                    title=Title("Redundancy group name"),
+                    help_text=Help("Optional display name for a redundant IPSec tunnel bundle, e.g. 'HQ MPLS backup'."),
+                ),
+            ),
+            "redundancy_group_members": DictElement(
+                parameter_form=List[str](
+                    title=Title("Redundant IPSec tunnel members"),
+                    help_text=Help("List all phase1 tunnel service items that belong to the same redundant bundle. Apply the same rule to every member of the bundle. A CRIT state is only triggered when all members in this list are effectively down."),
                     element_template=String(
                         custom_validate=(validators.LengthInRange(min_value=1),),
                     ),
