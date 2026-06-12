@@ -1,5 +1,3 @@
-Here is the full updated `README.md` ready for GitHub:
-
 # FortiOS Checkmk Special Agent Extended
 
 Extended FortiGate monitoring for **Checkmk 2.4.x and 2.5.x** via the FortiOS REST API.
@@ -637,37 +635,6 @@ Verify with:
 ```bash
 grep -R "cmk.utils.user" ~/local/lib/python3/cmk/gui/plugins/views 2>/dev/null
 grep -R "cmk.ccc.user" ~/local/lib/python3/cmk/gui/plugins/views/fortios_inventory.py 2>/dev/null
-```
-
----
-
-### Package activation fails because a file is missing
-
-If activation or removal fails with an error similar to:
-
-```text
-No such file or directory:
-'/omd/sites/<SITE>/local/lib/python3/cmk/gui/plugins/views/fortios_inventory.py'
-```
-
-create the missing placeholder files once, remove the broken package state, and reinstall the fixed package:
-
-```bash
-mkdir -p ~/local/lib/python3/cmk/gui/plugins/views
-touch ~/local/lib/python3/cmk/gui/plugins/views/fortios_inventory.py
-touch ~/local/lib/python3/cmk/gui/plugins/views/fortios_inventory_hints.py
-
-mkp disable fortios 2.1.5 2>/dev/null || true
-mkp remove fortios 2.1.5 2>/dev/null || true
-
-rm -f ~/local/lib/python3/cmk/gui/plugins/views/fortios_inventory.py
-rm -f ~/local/lib/python3/cmk/gui/plugins/views/fortios_inventory_hints.py
-
-mkp add /tmp/fortios-2.1.5.mkp
-mkp enable fortios 2.1.5
-
-omd restart apache
-cmk -R
 ```
 
 ---
