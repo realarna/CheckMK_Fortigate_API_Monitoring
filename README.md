@@ -1,3 +1,5 @@
+Here is the full updated `README.md` ready for GitHub:
+
 # FortiOS Checkmk Special Agent Extended
 
 Extended FortiGate monitoring for **Checkmk 2.4.x and 2.5.x** via the FortiOS REST API.
@@ -195,6 +197,137 @@ Improvements include:
 
 ---
 
+## Requirements
+
+### FortiGate requirements
+
+The FortiGate must provide REST API access.
+
+Required:
+
+* FortiGate with REST API enabled
+* REST API administrator
+* API token authentication
+* API token with read permissions for the monitored endpoints
+* Network access from the Checkmk site to the FortiGate management interface
+* HTTPS administrative access enabled on the FortiGate interface used by Checkmk
+
+---
+
+### Checkmk requirements
+
+Required:
+
+* Checkmk 2.4.x or 2.5.x
+* Python 3 environment provided by Checkmk
+* Special agent execution from the Checkmk site
+* Service discovery after installation or upgrade
+
+---
+
+## FortiGate API token setup
+
+Before the Checkmk rule can be created, a REST API administrator must be configured on the FortiGate.
+
+---
+
+### 1. Create or verify an admin profile
+
+Create a dedicated admin profile for monitoring, or use an existing read-only profile if it provides access to the required monitoring endpoints.
+
+Recommended approach:
+
+* Use a dedicated profile for Checkmk.
+* Grant only the permissions required for monitoring.
+* Avoid using a full `super_admin` profile for the API token.
+* Restrict access with trusted hosts.
+
+The API user must be able to read the FortiGate status and monitoring endpoints used by this extension.
+
+Used endpoints include:
+
+```text
+/api/v2/monitor/system/status
+/api/v2/monitor/system/firmware
+/api/v2/monitor/system/ha-checksums
+```
+
+Depending on the monitored FortiGate features, additional endpoints used by the original FortiOS special agent may also be required.
+
+---
+
+### 2. Create the REST API administrator
+
+In the FortiGate GUI:
+
+1. Go to **System → Administrators**.
+
+2. Select **Create New → REST API Admin**.
+
+3. Enter a dedicated username, for example:
+
+   ```text
+   checkmk_api
+   ```
+
+4. Select the monitoring admin profile.
+
+5. Configure **Trusted Hosts**.
+
+The trusted host should be the IP address of the Checkmk site or monitoring server.
+
+Example:
+
+```text
+Trusted Host: 10.10.10.20/32
+```
+
+Using trusted hosts is strongly recommended so the token can only be used from the Checkmk server.
+
+6. Save the REST API administrator.
+7. Copy the generated API token.
+
+Important:
+
+```text
+The API token is shown only once. Store it securely.
+```
+
+---
+
+### 3. Test the API token manually
+
+From the Checkmk site, test the token before configuring the Checkmk rule.
+
+Example:
+
+```bash
+curl -k \
+  -H "Authorization: Bearer <API_TOKEN>" \
+  "https://<FORTIGATE_IP_OR_FQDN>/api/v2/monitor/system/status"
+```
+
+Example with placeholders:
+
+```bash
+curl -k \
+  -H "Authorization: Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
+  "https://10.10.10.1/api/v2/monitor/system/status"
+```
+
+A successful response should return JSON data from the FortiGate.
+
+If the request fails, check:
+
+* FortiGate management interface is reachable from the Checkmk server.
+* HTTPS administrative access is enabled on the FortiGate interface.
+* The API token was copied correctly.
+* The API administrator has sufficient read permissions.
+* The Checkmk server IP is allowed as a trusted host.
+* Firewall policies or local-in policies do not block the connection.
+
+---
+
 ## Installation
 
 Upload the MKP file to your Checkmk site and install it as the site user.
@@ -208,13 +341,164 @@ mkp enable fortios 2.1.5
 cmk -R
 ```
 
-After installation:
+After installation, continue with the Checkmk host and rule configuration below.
 
-1. Open the Checkmk GUI.
-2. Go to **Setup → Hosts**.
-3. Run **Service Discovery** on your FortiGate host.
-4. Accept the newly discovered services.
+---
+
+## Checkmk host configuration
+
+Create or edit the FortiGate host in Checkmk.
+
+Recommended host settings for API-only monitoring:
+
+1. Go to **Setup → Hosts**.
+2. Create or edit the FortiGate host.
+3. Set the host name.
+4. Set the IPv4 address or DNS name of the FortiGate.
+5. Configure the monitoring agent mode.
+
+Recommended setting for API-only monitoring:
+
+```text
+Configured API integrations, no Checkmk agent
+```
+
+If you also monitor the FortiGate with SNMP, choose the option that matches your environment, for example:
+
+```text
+Configured API integrations and SNMP
+```
+
+Save the host.
+
+---
+
+## Checkmk FortiOS special agent rule
+
+After installing the MKP, create the FortiOS special agent rule.
+
+Navigate to:
+
+```text
+Setup → Agents → VM, cloud, container → Special agents → FortiOS Agent
+```
+
+Create a new rule.
+
+Configure the connection settings:
+
+```text
+FortiGate address: <FortiGate IP or FQDN>
+Port: 443
+API token: <FortiGate REST API token>
+SSL verification: according to your certificate setup
+```
+
+Recommended:
+
+* Use the Checkmk password store for the API token if available.
+* Use HTTPS.
+* Enable SSL verification if the FortiGate uses a valid certificate.
+* Disable SSL verification only if you use a self-signed certificate and accept that behavior.
+
+Example rule values:
+
+```text
+FortiGate address: 10.10.10.1
+Port: 443
+API token: stored in Checkmk password store or entered directly
+SSL verification: disabled for self-signed certificates
+```
+
+Configure additional rule options if required:
+
+* Firmware branch handling
+* Critical state on branch change
+* Allow immature branch updates
+* IPSec redundancy grouping
+* IPSec phase2 ignore rules
+
+---
+
+## Rule conditions
+
+Restrict the rule to the correct FortiGate host.
+
+Recommended condition:
+
+```text
+Explicit hosts: <FortiGate host name in Checkmk>
+```
+
+Example:
+
+```text
+Explicit hosts: fw-office-01
+```
+
+Alternatively, apply the rule to a folder or host tag if you manage multiple FortiGate firewalls.
+
+Example for multiple FortiGates:
+
+```text
+Folder: /network/firewalls/fortigate
+```
+
+or:
+
+```text
+Host tag: fortigate
+```
+
+Save the rule.
+
+---
+
+## Service discovery
+
+After the host and the FortiOS special agent rule are configured:
+
+1. Go to **Setup → Hosts**.
+2. Open the FortiGate host.
+3. Run **Service Discovery**.
+4. Accept the discovered services.
 5. Activate changes.
+
+You can also run discovery from the command line:
+
+```bash
+su - <SITE>
+cmk -vI <HOSTNAME>
+cmk -R
+```
+
+Example:
+
+```bash
+su - mysite
+cmk -vI fw-office-01
+cmk -R
+```
+
+---
+
+## Quick setup summary
+
+Minimal setup flow:
+
+```text
+1. Create FortiGate REST API admin.
+2. Restrict API admin with trusted host = Checkmk server IP.
+3. Copy the generated API token.
+4. Test the API token with curl from the Checkmk site.
+5. Install the MKP in Checkmk.
+6. Create or edit the FortiGate host in Checkmk.
+7. Create the FortiOS Agent rule.
+8. Enter the FortiGate address and API token.
+9. Restrict the rule to the FortiGate host.
+10. Run service discovery.
+11. Activate changes.
+```
 
 ---
 
@@ -302,53 +586,6 @@ cmk -R
 
 ---
 
-## Configuration
-
-Navigate to:
-
-```text
-Setup → Agents → VM, cloud, container → Special agents → FortiOS Agent
-```
-
-Configure the FortiOS special agent with:
-
-* FortiGate API token
-* Port
-* SSL handling
-* Firmware branch handling behavior
-* Optional firmware branch change handling
-* Optional immature branch handling
-
-For IPSec redundancy grouping, configure the IPSec tunnel check parameters and apply the same redundancy group definition to all relevant tunnel members.
-
-For HA cluster synchronization monitoring, no additional configuration is normally required. The service is discovered automatically when the FortiGate API reports multiple HA members.
-
----
-
-## FortiGate requirements
-
-The FortiGate must provide REST API access.
-
-Required:
-
-* FortiGate with REST API enabled
-* API token authentication
-* API token with read permissions for the monitored endpoints
-* Network access from the Checkmk site to the FortiGate management interface
-
----
-
-## Checkmk requirements
-
-Required:
-
-* Checkmk 2.4.x or 2.5.x
-* Python 3 environment provided by Checkmk
-* Special agent execution from the Checkmk site
-* Service discovery after installation or upgrade
-
----
-
 ## API endpoints used
 
 Depending on the enabled checks and available FortiGate features, the extension can use the following FortiOS REST API endpoints:
@@ -366,6 +603,64 @@ Additional endpoints may be used by the original FortiOS special agent depending
 ---
 
 ## Troubleshooting
+
+### Test API access from the Checkmk site
+
+```bash
+curl -k \
+  -H "Authorization: Bearer <API_TOKEN>" \
+  "https://<FORTIGATE_IP_OR_FQDN>/api/v2/monitor/system/status"
+```
+
+---
+
+### HTTP 401 Unauthorized
+
+Possible causes:
+
+* Wrong API token.
+* Token was regenerated and the old token is still configured in Checkmk.
+* API administrator does not have sufficient permissions.
+* Request is not using the correct authorization header.
+
+---
+
+### HTTP 403 Forbidden
+
+Possible causes:
+
+* Trusted host does not include the Checkmk server IP.
+* Admin profile does not allow access to the required endpoint.
+* Local-in policy blocks access.
+
+---
+
+### Connection timeout
+
+Possible causes:
+
+* FortiGate IP or DNS name is wrong.
+* HTTPS admin access is not enabled on the FortiGate interface.
+* Firewall routing or local-in policy blocks the Checkmk server.
+* Wrong port configured in the Checkmk rule.
+
+---
+
+### SSL certificate error
+
+Possible causes:
+
+* FortiGate uses a self-signed certificate.
+* Certificate CN/SAN does not match the configured hostname.
+* Checkmk does not trust the issuing CA.
+
+Possible solutions:
+
+* Use a valid certificate on the FortiGate.
+* Configure the rule with the correct FQDN.
+* Disable SSL verification only if this is acceptable in your environment.
+
+---
 
 ### Package is enabled but not active
 
@@ -467,9 +762,9 @@ This project builds upon the excellent work of:
 
 * Simon Meister
 * Roland Wyss / Wagner AG
-  https://github.com/WagnerAG/checkmk_fortigate
+  [https://github.com/WagnerAG/checkmk_fortigate](https://github.com/WagnerAG/checkmk_fortigate)
 * Jacox98
-  https://github.com/Jacox98/checkmk-fortios-fw
+  [https://github.com/Jacox98/checkmk-fortios-fw](https://github.com/Jacox98/checkmk-fortios-fw)
 
 Thank you for the original implementation and contributions to the Checkmk community.
 
