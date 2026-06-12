@@ -206,8 +206,6 @@ The FortiGate must provide REST API access.
 Required:
 
 * FortiGate with REST API enabled
-* REST API administrator
-* API token authentication
 * API token with read permissions for the monitored endpoints
 * Network access from the Checkmk site to the FortiGate management interface
 * HTTPS administrative access enabled on the FortiGate interface used by Checkmk
@@ -219,7 +217,6 @@ Required:
 Required:
 
 * Checkmk 2.4.x or 2.5.x
-* Python 3 environment provided by Checkmk
 * Special agent execution from the Checkmk site
 * Service discovery after installation or upgrade
 
@@ -227,13 +224,13 @@ Required:
 
 ## FortiGate API token setup
 
-Before the Checkmk rule can be created, a REST API administrator must be configured on the FortiGate.
+Before the Checkmk rule can be created, a REST API User must be configured on the FortiGate.
 
 ---
 
 ### 1. Create or verify an admin profile
 
-Create a dedicated admin profile for monitoring, or use an existing read-only profile if it provides access to the required monitoring endpoints.
+Create a dedicated user profile for monitoring, or use an existing read-only profile if it provides access to the required monitoring endpoints.
 
 Recommended approach:
 
@@ -256,7 +253,7 @@ Depending on the monitored FortiGate features, additional endpoints used by the 
 
 ---
 
-### 2. Create the REST API administrator
+### 2. Create the REST API user
 
 In the FortiGate GUI:
 
