@@ -325,7 +325,7 @@ If the request fails, check:
 
 ## Installation
 
-Upload the MKP file to your Checkmk site and install it as the site user.
+Upload the MKP file to your Checkmk site and install it as the site user if you use the community edition.
 
 Example:
 
@@ -335,6 +335,7 @@ mkp add /tmp/fortios-2.1.5.mkp
 mkp enable fortios 2.1.5
 cmk -R
 ```
+For commercial versions just use Setup -> Extension Packages
 
 After installation, continue with the Checkmk host and rule configuration below.
 
