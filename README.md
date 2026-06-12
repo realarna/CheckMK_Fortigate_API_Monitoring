@@ -1,133 +1,323 @@
-# FortiOS Checkmk Special Agent (Extended)
+# FortiOS Checkmk Special Agent Extended
 
-Extended FortiGate monitoring for **Checkmk 2.4+** via REST API.
+Extended FortiGate monitoring for **Checkmk 2.4.x and 2.5.x** via the FortiOS REST API.
 
-All credits belong to the original creators. This package combines two ready-to-use Checkmk FortiGate extensions into one package and adds additional monitoring services and rule-based enhancements for better visualization, alerting, and operational use.
+This package combines and extends existing Checkmk FortiGate monitoring extensions into one ready-to-use MKP package. It adds additional monitoring services, firmware monitoring, HA cluster synchronization checks, improved IPSec tunnel evaluation, and rule-based enhancements for better visualization, alerting, and operational use.
 
-The extension combines the original FortiOS special agent with integrated firmware monitoring, additional device metadata services, enhanced IPSec tunnel checks, and HA cluster synchronization monitoring.
+All credits belong to the original creators. This package builds on their work and adds compatibility and functionality improvements for modern Checkmk environments.
 
 ---
 
-## 🚀 Features
+## Compatibility
 
-### ✅ Core FortiOS Monitoring
+This release has been updated for **Checkmk 2.5.x**.
 
-- Hostname
-- FortiOS version
-- Build number
-- System status
+Tested and rebuilt against:
 
-### ✅ Firmware Monitoring
+```text
+Checkmk 2.5.0p6
+```
+
+Package metadata:
+
+```text
+version.min_required = 2.3.0p1
+version.packaged     = 2.5.0p6
+version.usable_until = 2.5.99
+```
+
+The package is intended for:
+
+* Checkmk 2.4.x
+* Checkmk 2.5.x
+
+---
+
+## What is new in version 2.1.5
+
+Version **2.1.5** includes the Checkmk 2.5 compatibility fixes.
+
+### Fixed
+
+* Fixed package metadata so the MKP can be enabled on Checkmk 2.5.
+
+* Fixed GUI extension loading error in `views/fortios_inventory`.
+
+* Replaced the removed Checkmk import:
+
+  ```python
+  from cmk.utils.user import UserId
+  ```
+
+  with the Checkmk 2.5-compatible import:
+
+  ```python
+  from cmk.ccc.user import UserId
+  ```
+
+* Updated deprecated GUI view metadata:
+
+  ```python
+  megamenu_search_terms
+  ```
+
+  to:
+
+  ```python
+  main_menu_search_terms
+  ```
+
+* Fixed MKP archive path structure so activation and removal work correctly.
+
+* Rebuilt the package as a clean **2.1.5** release.
+
+---
+
+## Features
+
+### Core FortiOS Monitoring
+
+The special agent collects basic FortiGate system information via the FortiOS REST API.
+
+Monitored information includes:
+
+* Hostname
+* FortiOS version
+* Build number
+* System status
+
+---
+
+### Firmware Monitoring
 
 Integrated FortiGate firmware monitoring is included in the package.
 
-- Available firmware updates
-- Branch change detection
-- Optional **CRITICAL** state on branch change
-- Optional **OK** state for immature branch updates
+The firmware check can detect:
 
-### ✅ Device Metadata Services
+* Available firmware updates
+* Firmware branch changes
+* Immature branch updates
+
+Supported rule options include:
+
+* Optional **CRITICAL** state on branch change
+* Optional **OK** state for immature branch updates
+
+This allows controlled alerting when a FortiGate can be upgraded, while avoiding unwanted critical alerts for intentionally ignored firmware branches.
+
+---
+
+### Device Metadata Services
 
 Additional FortiGate device information is provided as separate Checkmk services.
 
-- **FortiOS Model**
-- **FortiOS Serial Number**
+Included services:
+
+* **FortiOS Model**
+* **FortiOS Serial Number**
 
 These services are useful for:
 
-- Inventory filtering
-- Dashboard grouping
-- BI aggregation
-- Alerting on device identity changes
+* Inventory filtering
+* Dashboard grouping
+* BI aggregation
+* Alerting on device identity changes
+* Documentation and operational overview
 
 No additional API calls are required for these services. The data is reused from the existing device information endpoint.
 
-### ✅ HA Cluster Synchronization Monitoring
+---
 
-This release adds a dedicated HA synchronization status check for FortiGate clusters.
+### HA Cluster Synchronization Monitoring
 
-- New service: **HA sync status**
-- Uses FortiOS HA checksum information
-- Automatically discovered only when an HA cluster with more than one member is detected
-- Reports **OK** when HA members are synchronized
-- Reports **CRIT** if FortiOS reports an out-of-sync state or if HA checksum values differ between cluster members
-- Reports **UNKNOWN** if an HA cluster is detected but the returned sync/checksum data cannot be interpreted reliably
+The package includes a dedicated HA synchronization status check for FortiGate clusters.
+
+Service:
+
+```text
+HA sync status
+```
+
+The check uses FortiOS HA checksum information and is automatically discovered when an HA cluster with more than one member is detected.
+
+The service reports:
+
+* **OK** when HA members are synchronized
+* **CRIT** if FortiOS reports an out-of-sync state
+* **CRIT** if HA checksum values differ between cluster members
+* **UNKNOWN** if an HA cluster is detected but the returned sync or checksum data cannot be interpreted reliably
 
 This helps detect HA configuration synchronization problems that could affect failover consistency.
 
-### ✅ IPSec Tunnel Redundancy Grouping
+---
 
-IPSec phase1 tunnel monitoring now supports redundant tunnel bundles.
+### IPSec Tunnel Redundancy Grouping
 
-New rule options:
+IPSec phase1 tunnel monitoring supports redundant tunnel bundles.
 
-- **Redundancy group name**
-- **Redundant IPSec tunnel members**
+Rule options:
+
+* **Redundancy group name**
+* **Redundant IPSec tunnel members**
 
 When multiple IPSec phase1 tunnels are configured as one redundancy group:
 
-- The service stays **OK** as long as at least one configured member is effectively up
-- The service becomes **CRIT** only when all known members of the redundancy group are down
-- The service output includes the redundancy group name, configured members, up/down members, and missing members
+* The service stays **OK** as long as at least one configured member is effectively up.
+* The service becomes **CRIT** only when all known members of the redundancy group are down.
+* The service output includes:
+
+  * Redundancy group name
+  * Configured members
+  * Up members
+  * Down members
+  * Missing members
 
 This is useful for environments where multiple IPSec tunnels provide redundant connectivity and only a complete redundancy group outage should trigger a critical alert.
 
-### ✅ Improved IPSec Phase2 Evaluation
+---
+
+### Improved IPSec Phase2 Evaluation
 
 The IPSec tunnel check logic was improved to reduce false positives and provide clearer troubleshooting output.
 
 Improvements include:
 
-- Ignored phase2 entries are excluded from the effective tunnel health calculation
-- If all phase2 entries of a tunnel are intentionally ignored by rule, the service remains **OK**
-- Destination-subnet ignore handling is safer for missing or empty proxy destination data
-- Check output includes:
-  - Effective phase2 tunnel count
-  - Effective up/down count
-  - Ignored phase2 names
-  - Ignored destination subnets
+* Ignored phase2 entries are excluded from the effective tunnel health calculation.
+* If all phase2 entries of a tunnel are intentionally ignored by rule, the service remains **OK**.
+* Destination-subnet ignore handling is safer for missing or empty proxy destination data.
+* The check output includes:
+
+  * Effective phase2 tunnel count
+  * Effective up count
+  * Effective down count
+  * Ignored phase2 names
+  * Ignored destination subnets
 
 ---
 
-## 📦 Installation
+## Installation
 
-Upload the MKP to your Checkmk site and install it:
+Upload the MKP file to your Checkmk site and install it as the site user.
+
+Example:
 
 ```bash
-omd su <SITE>
-mkp install fortios-<VERSION>.mkp
+su - <SITE>
+mkp add /tmp/fortios-2.1.5.mkp
+mkp enable fortios 2.1.5
 cmk -R
 ```
 
 After installation:
 
-1. Go to **Setup → Hosts**
-2. Run **Service Discovery** on your FortiGate host
-3. Activate changes
+1. Open the Checkmk GUI.
+2. Go to **Setup → Hosts**.
+3. Run **Service Discovery** on your FortiGate host.
+4. Accept the newly discovered services.
+5. Activate changes.
 
-If you previously installed the standalone firmware package, remove it to avoid duplicate services:
+---
+
+## Upgrade from an older version
+
+If you are upgrading from an older FortiOS package version, disable and remove the old package first.
+
+Example:
 
 ```bash
+su - <SITE>
+
+mkp disable fortios <OLD_VERSION>
+mkp remove fortios <OLD_VERSION>
+
+mkp add /tmp/fortios-2.1.5.mkp
+mkp enable fortios 2.1.5
+
+cmk -R
+```
+
+Existing rules and discovered services should remain intact because the package name, ruleset names, and check plug-in names were not changed.
+
+---
+
+## Important upgrade note for Checkmk 2.5
+
+If you previously installed one of the temporary Checkmk 2.5 test builds and still see this error:
+
+```text
+Some GUI extensions could not be loaded.
+
+Loading "views/fortios_inventory" failed:
+No module named 'cmk.utils.user'
+```
+
+check for stale local GUI files:
+
+```bash
+grep -R "cmk.utils.user" \
+  ~/local/lib/python3/cmk/gui/plugins/views \
+  ~/local/share/check_mk/web/plugins/views \
+  2>/dev/null
+```
+
+If the command returns `fortios_inventory.py`, remove the stale file before enabling the fixed package:
+
+```bash
+rm -f ~/local/lib/python3/cmk/gui/plugins/views/fortios_inventory.py
+rm -f ~/local/lib/python3/cmk/gui/plugins/views/fortios_inventory_hints.py
+```
+
+Then reinstall the fixed package:
+
+```bash
+mkp add /tmp/fortios-2.1.5.mkp
+mkp enable fortios 2.1.5
+omd restart apache
+cmk -R
+```
+
+The following command should return no output:
+
+```bash
+grep -R "cmk.utils.user" \
+  ~/local/lib/python3/cmk/gui/plugins/views \
+  ~/local/share/check_mk/web/plugins/views \
+  2>/dev/null
+```
+
+---
+
+## Remove standalone firmware package
+
+If you previously installed a standalone FortiGate firmware monitoring package, remove it to avoid duplicate services.
+
+Example:
+
+```bash
+su - <SITE>
+mkp disable fortigate_firmware
 mkp remove fortigate_firmware
 cmk -R
 ```
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
 Navigate to:
 
-**Setup → Agents → VM, cloud, container → Special agents → FortiOS Agent**
+```text
+Setup → Agents → VM, cloud, container → Special agents → FortiOS Agent
+```
 
-Configure:
+Configure the FortiOS special agent with:
 
-- API token
-- Port
-- SSL handling
-- Firmware branch handling behavior:
-  - Critical on branch change
-  - Allow immature branch updates
+* FortiGate API token
+* Port
+* SSL handling
+* Firmware branch handling behavior
+* Optional firmware branch change handling
+* Optional immature branch handling
 
 For IPSec redundancy grouping, configure the IPSec tunnel check parameters and apply the same redundancy group definition to all relevant tunnel members.
 
@@ -135,15 +325,31 @@ For HA cluster synchronization monitoring, no additional configuration is normal
 
 ---
 
-## 🔐 Requirements
+## FortiGate requirements
 
-- FortiGate with REST API enabled
-- API token with read permissions
-- Checkmk 2.4 or newer
+The FortiGate must provide REST API access.
+
+Required:
+
+* FortiGate with REST API enabled
+* API token authentication
+* API token with read permissions for the monitored endpoints
+* Network access from the Checkmk site to the FortiGate management interface
 
 ---
 
-## 🧠 API Endpoints Used
+## Checkmk requirements
+
+Required:
+
+* Checkmk 2.4.x or 2.5.x
+* Python 3 environment provided by Checkmk
+* Special agent execution from the Checkmk site
+* Service discovery after installation or upgrade
+
+---
+
+## API endpoints used
 
 Depending on the enabled checks and available FortiGate features, the extension can use the following FortiOS REST API endpoints:
 
@@ -155,38 +361,120 @@ Depending on the enabled checks and available FortiGate features, the extension 
 
 The HA checksum endpoint is used for HA cluster synchronization monitoring.
 
+Additional endpoints may be used by the original FortiOS special agent depending on the monitored FortiGate features.
+
 ---
 
-## 🔄 Upgrade Notes
+## Troubleshooting
 
-After upgrading from an older version:
+### Package is enabled but not active
+
+If Checkmk reports that the package is enabled but not active because of version requirements, verify that you are using version **2.1.5** or newer.
+
+Check installed packages:
+
+```bash
+mkp list | grep fortios
+```
+
+---
+
+### GUI extension cannot be loaded
+
+If the GUI reports:
+
+```text
+Loading "views/fortios_inventory" failed
+```
+
+check the exact Python import error.
+
+For Checkmk 2.5, the file must not contain:
+
+```python
+from cmk.utils.user import UserId
+```
+
+It should contain:
+
+```python
+from cmk.ccc.user import UserId
+```
+
+Verify with:
+
+```bash
+grep -R "cmk.utils.user" ~/local/lib/python3/cmk/gui/plugins/views 2>/dev/null
+grep -R "cmk.ccc.user" ~/local/lib/python3/cmk/gui/plugins/views/fortios_inventory.py 2>/dev/null
+```
+
+---
+
+### Package activation fails because a file is missing
+
+If activation or removal fails with an error similar to:
+
+```text
+No such file or directory:
+'/omd/sites/<SITE>/local/lib/python3/cmk/gui/plugins/views/fortios_inventory.py'
+```
+
+create the missing placeholder files once, remove the broken package state, and reinstall the fixed package:
+
+```bash
+mkdir -p ~/local/lib/python3/cmk/gui/plugins/views
+touch ~/local/lib/python3/cmk/gui/plugins/views/fortios_inventory.py
+touch ~/local/lib/python3/cmk/gui/plugins/views/fortios_inventory_hints.py
+
+mkp disable fortios 2.1.5 2>/dev/null || true
+mkp remove fortios 2.1.5 2>/dev/null || true
+
+rm -f ~/local/lib/python3/cmk/gui/plugins/views/fortios_inventory.py
+rm -f ~/local/lib/python3/cmk/gui/plugins/views/fortios_inventory_hints.py
+
+mkp add /tmp/fortios-2.1.5.mkp
+mkp enable fortios 2.1.5
+
+omd restart apache
+cmk -R
+```
+
+---
+
+## Upgrade checklist
+
+After upgrading:
 
 1. Install the new MKP package.
-2. Restart/reload Checkmk.
+2. Restart or reload Checkmk.
 3. Run service discovery on FortiGate hosts.
 4. Review newly discovered services, especially:
-   - **HA sync status**
-   - Updated IPSec tunnel services
-5. Configure IPSec redundancy groups if required.
 
-Existing checks continue to work without additional configuration.
+   * **HA sync status**
+   * Updated IPSec tunnel services
+   * Firmware monitoring services
+   * Device metadata services
+5. Configure IPSec redundancy groups if required.
+6. Activate changes.
+
+Existing checks should continue to work without additional configuration.
 
 ---
 
-## 👥 Credits
+## Credits
 
 This project builds upon the excellent work of:
 
-- Simon Meister
-- Roland Wyss / Wagner AG  
+* Simon Meister
+* Roland Wyss / Wagner AG
   https://github.com/WagnerAG/checkmk_fortigate
-- Jacox98  
+* Jacox98
   https://github.com/Jacox98/checkmk-fortios-fw
 
 Thank you for the original implementation and contributions to the Checkmk community.
 
 ---
 
-## 📜 License
+## License
 
-Please refer to the original licensing terms of the base FortiOS Checkmk extension.
+Please refer to the original licensing terms of the base FortiOS Checkmk extensions.
