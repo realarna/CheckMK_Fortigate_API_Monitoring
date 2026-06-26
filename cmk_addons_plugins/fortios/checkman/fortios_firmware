@@ -1,0 +1,30 @@
+title: FortiOS Firmware
+agents: special
+catalog: os/networking
+license: GPL
+distribution: check_mk
+description:
+ This check monitors the firmware status of FortiGate devices via the FortiOS REST API.
+
+ It reports whether firmware updates are available, and distinguishes between updates
+ within the current branch and updates that require a branch change (e.g. 7.2 -> 7.4).
+
+ The special agent queries the endpoint:
+  - /api/v2/monitor/system/firmware
+
+ The rule "FortiOS Agent" provides two optional firmware behaviour flags:
+  - Firmware: branch change is CRITICAL
+  - Firmware: OK if only immature branch updates exist
+
+item:
+ None
+
+inventory:
+ Not supported
+
+parameters:
+ None
+
+perfdata:
+ updates_available  Number of update images newer than the currently installed firmware
+ mature_updates     Number of updates marked as mature (if available in the API payload)
