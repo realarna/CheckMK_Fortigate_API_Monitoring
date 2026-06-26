@@ -139,10 +139,20 @@ def parse_fortios_dhcp_scope(string_table) -> Mapping[str, DhcpServer] | None:
     except (ValueError, IndexError):
         return None
 
-    if (forti_dhcp_scope := json_data.get("results")) in ({}, []):
+    forti_dhcp_scope = json_data.get("results")
+    if not forti_dhcp_scope:
         return None
 
-    return {str(ipaddress.IPv4Network(f"{item['default_gateway']}/{item['netmask']}", strict=False)): DhcpServer(**item) for item in forti_dhcp_scope}
+    scopes: Dict[str, DhcpServer] = {}
+    for item in forti_dhcp_scope:
+        try:
+            scope = DhcpServer(**item)
+            network = str(ipaddress.IPv4Network(f"{scope.default_gateway}/{scope.netmask}", strict=False))
+        except (KeyError, TypeError, ValueError):
+            continue
+        scopes[network] = scope
+
+    return scopes or None
 
 
 agent_section_fortios_dhcp_scope = AgentSection(
@@ -152,12 +162,18 @@ agent_section_fortios_dhcp_scope = AgentSection(
 
 
 def discovery_fortios_dhcp_scope(section_fortios_dhcp_scope, section_fortios_dhcp_lease) -> DiscoveryResult:
+    if not section_fortios_dhcp_scope:
+        return
+
     for item in section_fortios_dhcp_scope:
         yield Service(item=item)
 
 
 def check_fortios_dhcp_scope(item: str, params: Mapping[str, Any], section_fortios_dhcp_scope, section_fortios_dhcp_lease) -> CheckResult:
-    dhcp_levels = params.get("dhcp_scope_levels")
+    if not section_fortios_dhcp_scope:
+        return
+
+    dhcp_levels = params.get("dhcp_scope_levels", DEFAULT_DHCP_LEVELS["dhcp_scope_levels"])
 
     scope = section_fortios_dhcp_scope.get(item)
 
@@ -168,6 +184,9 @@ def check_fortios_dhcp_scope(item: str, params: Mapping[str, Any], section_forti
     for ip_range in scope.ip_range:
         total_ip_count.append(int(ipaddress.IPv4Address(ip_range.end_ip)) - int(ipaddress.IPv4Address(ip_range.start_ip)) + 1)
     total_ip_count = sum(total_ip_count)
+    if total_ip_count <= 0:
+        yield Result(state=State.UNKNOWN, summary=f"{scope.summary}, no DHCP address range returned")
+        return
 
     used_ip_count = 0
     conflicted_details = []

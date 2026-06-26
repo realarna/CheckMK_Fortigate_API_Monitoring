@@ -61,31 +61,6 @@ class InterfaceCMDB(BaseModel):
     vlanid: int | str | None = None
 
 
-def _column_name(key: str) -> str:
-    """Convert FortiOS keys to safe inventory column names."""
-    return (
-        key.strip()
-        .lower()
-        .replace("-", "_")
-        .replace(" ", "_")
-        .replace(".", "_")
-        .replace("/", "_")
-    )
-
-
-def _to_inventory_value(value: Any) -> str | int | float | bool:
-    """Return a Checkmk inventory-safe value.
-
-    Keep primitive values as-is where possible and serialize complex FortiOS
-    structures as deterministic JSON strings so no API data is lost.
-    """
-    if value is None:
-        return ""
-    if isinstance(value, (str, int, float, bool)):
-        return value
-    return json.dumps(value, sort_keys=True, ensure_ascii=False)
-
-
 def _netmask_to_prefix(netmask: str) -> int | None:
     try:
         return ipaddress.IPv4Network(f"0.0.0.0/{netmask}").prefixlen
@@ -124,7 +99,9 @@ def secondary_ips_to_cidr(value: Any) -> str:
     if not value:
         return ""
     if not isinstance(value, list):
-        return _to_inventory_value(value)
+        if isinstance(value, (str, int, float, bool)):
+            return str(value)
+        return json.dumps(value, sort_keys=True, ensure_ascii=False)
 
     addresses: list[str] = []
     for entry in value:
@@ -164,45 +141,25 @@ agent_section_fortios_interfaces_cmdb = AgentSection(
 
 
 def inventory_fortios_interfaces_cmdb(section: Mapping[str, InterfaceCMDB]) -> InventoryResult:
-    """Inventory all configured FortiOS interface data.
-
-    The inventory contains normalized commonly used columns plus a sanitized
-    column for every key returned by the FortiGate CMDB endpoint. Complex values
-    are serialized as JSON strings.
-    """
+    """Inventory configured FortiOS interface data with a compact column set."""
     if section is None:
         return
 
     path = ["networking", "fortios", "interfaces"]
     for _interface_key, interface in sorted(section.items()):
-        raw_data = interface.model_dump(mode="json", by_alias=False)
-
-        inventory_columns = {
-            "alias": interface.alias,
-            "description": interface.description,
-            "type": interface.type,
-            "role": interface.role,
-            "status": interface.status,
-            "mode": interface.mode,
-            "ip_address": fortios_ip_to_cidr(interface.ip),
-            "secondary_ip_addresses": secondary_ips_to_cidr(interface.secondaryip),
-            "vlan_id": "" if interface.vlanid is None else str(interface.vlanid),
-            "parent_interface": interface.interface,
-            "vdom": interface.vdom,
-            "allow_access": interface.allowaccess,
-            "mac_address": interface.macaddr,
-        }
-
-        # Add every FortiOS CMDB field so that inventory keeps all data returned
-        # by the firewall. Known normalized columns above remain available with
-        # stable names, while raw columns use a raw_ prefix.
-        for raw_key, raw_value in sorted(raw_data.items()):
-            inventory_columns[f"raw_{_column_name(raw_key)}"] = _to_inventory_value(raw_value)
-
         yield TableRow(
             path=path,
             key_columns={"name": interface.name or interface.q_origin_key or _interface_key},
-            inventory_columns=inventory_columns,
+            inventory_columns={
+                "ip_address": fortios_ip_to_cidr(interface.ip),
+                "secondary_ip_addresses": secondary_ips_to_cidr(interface.secondaryip),
+                "vlan_id": "" if interface.vlanid is None else str(interface.vlanid),
+                "vdom": interface.vdom,
+                "status": interface.status,
+                "role": interface.role,
+                "management_access": interface.allowaccess,
+                "mac_address": interface.macaddr,
+            },
         )
 
 
