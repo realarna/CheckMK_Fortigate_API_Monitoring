@@ -64,12 +64,6 @@ The 2.1.7 release keeps the interface inventory functionality from 2.1.6 and add
   "megamenu_search_terms": [],
   ```
 
-- Fixed MKP packaging format so the package can be uploaded through the Checkmk GUI and no longer fails with:
-
-  ```text
-  not a gzip file
-  ```
-
 #### Included
 
 - Includes all interface inventory and interface service output improvements from version 2.1.6.
