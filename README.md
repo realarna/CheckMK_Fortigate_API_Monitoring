@@ -35,7 +35,7 @@ Current package version:
 2.1.9
 ```
 
-The 2.1.9 reduces the FortiOS interface inventory table to the operationally relevant fields.
+The 2.1.9 release reduces the FortiOS interface inventory table to the operationally relevant fields.
 
 ---
 
