@@ -2,7 +2,7 @@
 
 Extended FortiGate monitoring for **Checkmk 2.4.x and 2.5.x** via the FortiOS REST API.
 
-This package combines and extends existing Checkmk FortiGate monitoring extensions into one ready-to-use MKP package. It adds additional monitoring services, firmware monitoring, HA cluster synchronization checks, improved IPSec tunnel evaluation, FortiOS interface inventory, and rule-based enhancements for better visualization, alerting, and operational use.
+This package combines and extends existing Checkmk FortiGate monitoring extensions into one ready-to-use MKP package. It adds additional monitoring services, firmware monitoring, HA cluster synchronization checks, improved IPSec tunnel evaluation, FortiOS interface inventory, and rule-based enhancements for better visualization, alerting, documentation, and operational use.
 
 All credits belong to the original creators. This package builds on their work and adds compatibility and functionality improvements for modern Checkmk environments.
 
@@ -15,7 +15,7 @@ This package is intended for:
 - Checkmk 2.4.x
 - Checkmk 2.5.x
 
-The current release includes a compatibility import for Checkmk 2.4 and 2.5 GUI extensions.
+The current release includes compatibility handling for Checkmk 2.4 and 2.5 GUI extensions.
 
 Package metadata used for the Checkmk 2.5-compatible builds:
 
@@ -32,14 +32,60 @@ version.usable_until = 2.5.99
 Current package version:
 
 ```text
-2.1.7
+2.1.9
 ```
 
-The 2.1.7 release keeps the interface inventory functionality from 2.1.6 and adds Checkmk 2.4/2.5 GUI compatibility fixes.
+The 2.1.9 reduces the FortiOS interface inventory table to the operationally relevant fields.
 
 ---
 
 ## Changelog
+
+### [2.1.9] - 2026-06-26
+
+#### Changed
+
+- Reduced the FortiOS interface HW/SW inventory table to the following fields only:
+
+  - Name
+  - IP Address
+  - Secondary IP addresses
+  - VLAN ID
+  - Vdom
+  - Status
+  - Role
+  - Management access
+  - MAC address
+
+- Removed additional interface inventory columns from the visible inventory table, including alias, description, type, mode, parent interface, and raw FortiOS CMDB fields.
+- Kept the interface service output compact and limited to VLAN and IP address information.
+
+#### Included
+
+- Includes the DHCP scope discovery crash fix from version 2.1.8.
+- Includes the Checkmk 2.4/2.5 GUI compatibility fixes from version 2.1.7.
+- Includes the FortiOS interface inventory and interface service output improvements from version 2.1.6.
+
+---
+
+### [2.1.8] - 2026-06-26
+
+#### Fixed
+
+- Fixed a DHCP scope discovery crash when FortiOS returns DHCP lease data but no DHCP scope data.
+- `fortios_dhcp_scope` discovery now safely exits when `section_fortios_dhcp_scope` is `None`.
+- Added defensive handling in the DHCP scope check for missing scope data and empty DHCP address ranges.
+- Prevents Checkmk discovery crashes with:
+
+  ```text
+  'NoneType' object is not iterable
+  ```
+
+#### Notes
+
+- This fix is relevant for FortiGate systems where DHCP lease information is available but DHCP server or scope configuration is not returned by the API.
+
+---
 
 ### [2.1.7] - 2026-06-26
 
@@ -64,6 +110,15 @@ The 2.1.7 release keeps the interface inventory functionality from 2.1.6 and add
   "megamenu_search_terms": [],
   ```
 
+#### Packaging
+
+- Rebuilt the MKP as a gzip-compressed package after a temporary build was incorrectly packaged as an uncompressed tar archive.
+- Fixed upload error:
+
+  ```text
+  This package cannot be uploaded: not a gzip file
+  ```
+
 #### Included
 
 - Includes all interface inventory and interface service output improvements from version 2.1.6.
@@ -86,25 +141,7 @@ The 2.1.7 release keeps the interface inventory functionality from 2.1.6 and add
   Networking → FortiOS → Interfaces
   ```
 
-- Inventory includes normalized interface fields such as:
-
-  - Interface name
-  - Alias
-  - Description
-  - Type
-  - Role
-  - Status
-  - Mode
-  - Configured IPv4 address
-  - Configured subnet / prefix
-  - Secondary IP addresses
-  - VLAN ID
-  - Parent interface
-  - VDOM
-  - Management access
-  - MAC address
-
-- Inventory also stores raw FortiOS CMDB interface fields as additional `raw_*` inventory columns where possible, so returned FortiGate interface data is not lost.
+- Added normalized interface inventory data for configured interface IP addresses, secondary IP addresses, VLAN information, VDOM, status, role, management access, and MAC address.
 
 #### Changed
 
@@ -212,7 +249,7 @@ No additional API calls are required for these services. The data is reused from
 
 ### FortiOS Interface Inventory
 
-The package can collect configured FortiGate interface information from the FortiOS CMDB interface endpoint.
+The package collects configured FortiGate interface information from the FortiOS CMDB interface endpoint.
 
 Inventory path:
 
@@ -220,24 +257,17 @@ Inventory path:
 Networking → FortiOS → Interfaces
 ```
 
-The inventory can include:
+The visible inventory table is intentionally compact and includes only:
 
-- Interface name
-- Alias
-- Description
-- Type
-- Role
-- Status
-- Mode
-- Configured IPv4 address
-- Configured subnet / prefix
+- Name
+- IP Address
 - Secondary IP addresses
 - VLAN ID
-- Parent interface
-- VDOM
+- Vdom
+- Status
+- Role
 - Management access
 - MAC address
-- Additional raw FortiOS interface fields where available
 
 The inventory is intended for documentation, auditing, filtering, and operational visibility.
 
@@ -257,7 +287,7 @@ VLAN: 10, IP: 10.10.10.1/24
 
 Only VLAN and IP information are shown in the interface service output to keep the service output short and operationally useful.
 
-The complete interface configuration is available in the HW/SW inventory table.
+The complete compact interface configuration is available in the HW/SW inventory table.
 
 ---
 
@@ -463,8 +493,8 @@ Example:
 
 ```bash
 su - <SITE>
-mkp add /tmp/fortios-2.1.7.mkp
-mkp enable fortios 2.1.7
+mkp add /tmp/fortios-2.1.9.mkp
+mkp enable fortios 2.1.9
 cmk -R
 ```
 
@@ -632,6 +662,20 @@ Expected inventory path:
 Networking → FortiOS → Interfaces
 ```
 
+Visible inventory columns:
+
+```text
+Name
+IP Address
+Secondary IP addresses
+VLAN ID
+Vdom
+Status
+Role
+Management access
+MAC address
+```
+
 Command-line example:
 
 ```bash
@@ -676,14 +720,16 @@ su - <SITE>
 mkp disable fortios <OLD_VERSION>
 mkp remove fortios <OLD_VERSION>
 
-mkp add /tmp/fortios-2.1.7.mkp
-mkp enable fortios 2.1.7
+mkp add /tmp/fortios-2.1.9.mkp
+mkp enable fortios 2.1.9
 
 omd restart apache
 cmk -R
 ```
 
 Existing rules and discovered services should remain intact because the package name, ruleset names, and check plug-in names were not changed.
+
+After upgrading to version 2.1.9, run HW/SW inventory again so the compact interface inventory table replaces the previously broader table.
 
 ---
 
@@ -700,7 +746,7 @@ Depending on the enabled checks and available FortiGate features, the extension 
 
 The HA checksum endpoint is used for HA cluster synchronization monitoring.
 
-The CMDB interface endpoint is used for configured interface IP addresses, subnets, VLAN information, and interface inventory.
+The CMDB interface endpoint is used for configured interface IP addresses, subnets, VLAN information, management access, MAC address, status, role, VDOM, and interface inventory.
 
 Additional endpoints may be used by the original FortiOS special agent depending on the monitored FortiGate features.
 
@@ -794,13 +840,13 @@ If Checkmk reports:
 This package cannot be uploaded: not a gzip file
 ```
 
-make sure you are using the corrected gzip-compressed MKP build.
+make sure you are using a gzip-compressed MKP build.
 
 You can test the package file before upload:
 
 ```bash
-file fortios-2.1.7.mkp
-gzip -t fortios-2.1.7.mkp
+file fortios-2.1.9.mkp
+gzip -t fortios-2.1.9.mkp
 ```
 
 ---
@@ -843,8 +889,28 @@ Important:
 
 ```text
 cmk.utils.user is expected as a fallback for Checkmk 2.4.
-It is not automatically an error in version 2.1.7.
+It is not automatically an error in version 2.1.9.
 ```
+
+---
+
+### DHCP scope discovery crashes with NoneType error
+
+If discovery fails with an error similar to:
+
+```text
+'NoneType' object is not iterable
+```
+
+and the traceback points to:
+
+```text
+fortios_dhcp_scope.py
+```
+
+use version **2.1.8** or newer.
+
+Version 2.1.8 added defensive handling for FortiGate systems where DHCP lease data is returned but DHCP scope data is missing.
 
 ---
 
@@ -872,6 +938,22 @@ su - <SITE>
 cmk --inventory <HOSTNAME>
 cmk -R
 ```
+
+---
+
+### Interface inventory still shows old columns
+
+If the inventory still shows old columns such as alias, description, type, mode, parent interface, or raw fields after upgrading to version 2.1.9, run HW/SW inventory again for the FortiGate host.
+
+Command-line example:
+
+```bash
+su - <SITE>
+cmk --inventory <HOSTNAME>
+cmk -R
+```
+
+Then refresh the host inventory view in the Checkmk GUI.
 
 ---
 
